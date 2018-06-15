@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dynamic Travelling Repairman Problem - Reinforcement Learning</title>
+    <script src="https://unpkg.com/poisson-process/dist/poisson-process.min.js"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" integrity="sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js" integrity="sha384-smHYKdLADwkXOn1EmN1qk/HfnUcbVRZyYmZ4qpPea6sjB/pTJ0euyQp0Mk8ck+5T" crossorigin="anonymous"></script>    
+</head>
+<body>
+    <div class="container">
+            <h1>Multi-Agent Reinforcement Learning for the Dynamic Vehicle Routing Problem</h1>
+            <h2>(Work in Progress!)</h2>
+            <p>
+                If we have a fleet of robots and jobs for the robots appearning randomly in the environment, which jobs should go to which robot?
+                We will plan to examine that.
+                Here is a single robot choosing tasks as they appear.
+            </p>
+            <div style="margin: 0 auto; width: 800px">
+                <canvas id="drtp" width="800" height="600" style="border: 1px solid rgb(192, 192, 192);"></canvas>
+            </div>            
+    </div>
+<script>
+    let canvas = document.querySelector('#drtp');
+    let ctx = canvas.getContext('2d');
+    let width = +canvas.width;
+    let height = +canvas.height;
+    let demandSize = 20;
+    let player = {x: width / 2, y: height / 2};
+    let demands = [];
+    let demandTextOffset = 3;
+    var scores = []
+    var p = poissonProcess.create(2000, function() {
+        demands.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            timeRemaining: Math.random() * 10,
+            timeCreated: Date.now()
+        });
+    });
+    p.start();
+
+
+    function render(state) {
+        ctx.clearRect(0, 0, width, height);
+        let i = 0;
+        for (let demand of state.demands) {
+            // Draw first demand as green.
+            if (i == 0) {
+                ctx.fillStyle = '#0071BC';
+            } else {
+               ctx.fillStyle = "#C1272D"; 
+            }
+            ctx.fillRect(demand.x - demandSize / 2, demand.y - demandSize / 2, demandSize, demandSize);
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            if (i++ == 0) {
+                ctx.fillStyle = 'black';
+                ctx.fillText(`${demand.timeRemaining.toFixed(3)}`, 
+                    demand.x, 
+                    demand.y + demandTextOffset + 30);
+            } else {
+                ctx.fillStyle = 'white';
+                ctx.fillText(`${Math.floor(demand.timeRemaining)}`, 
+                    demand.x, 
+                    demand.y + demandTextOffset);
+            }
+        }
+        ctx.font = '28px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('🤖', state.player.x, state.player.y)
+        if (state.scores.length > 0) {
+            ctx.fillStyle = 'rgb(212, 212, 212)'
+            ctx.textAlign = 'start'
+            var sum = state.scores.reduce(function(a, b) { return a + b; });
+            var avg = sum / state.scores.length;
+            ctx.fillText(`Mean Service Time: ${avg} ms`, 20, 20)
+        }
+        
+    }
+
+    function tick() {
+        // Process demands in order of arrival.
+        if (demands.length > 0) {
+            let firstDemand = demands[0];
+            let distToFirstDemand = Math.sqrt(
+                Math.pow(firstDemand.x - player.x, 2),
+                Math.pow(firstDemand.y - player.y, 2));
+            if (distToFirstDemand > 1) {
+                let velX = (firstDemand.x - player.x);
+                let velY = (firstDemand.y - player.y);
+                // let velX = 500;
+                // let velY = 500;
+                player.x = player.x + 0.01 * velX;
+                player.y = player.y + 0.01 * velY;
+            } else {
+                demands[0].timeRemaining = demands[0].timeRemaining - (1000 / 60);
+                if (demands[0].timeRemaining < 0) {
+                    scores.push(Date.now() - demands[0].timeCreated);
+                    demands.shift();
+                }
+            }
+        }
+        render({
+            player: player,
+            demands: demands,
+            scores: scores
+        })
+    }
+    setInterval(tick, 1000 / 60);
+</script>
+</body>
+</html>
